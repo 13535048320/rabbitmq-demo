@@ -1,0 +1,5 @@
+spring:
+  rabbitmq:
+    addresses: 172.30.20.250:5672,172.30.20.251:5672,172.30.20.252:5672
+    username: guest
+    password: 123456
