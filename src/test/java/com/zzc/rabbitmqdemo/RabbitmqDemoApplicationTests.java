@@ -16,9 +16,9 @@ class RabbitmqDemoApplicationTests {
 
     @Test
     public void send() throws Exception {
-        producer.send();
+        for (int i = 0; i < 5; i++) {
+            producer.send();
+            Thread.sleep(10);
+        }
     }
-
-
-
 }
