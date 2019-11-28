@@ -88,6 +88,8 @@ rabbitmq-plugins enable rabbitmq_management
 
 访问
 http://172.30.20.250:15672
+默认用户名和密码为：
+guest/guest
 ```
 
 ## 7. 用户管理
@@ -127,8 +129,53 @@ rabbitmqctl set_permissions -p <VHostPath> <username> <conf-pattern> <write-patt
 rabbitmqctl clear_permissions [-p VHostPath] <username>
 ```
 
-## 9. 使用
-### 9.1 maven依赖
+## 9. 镜像策略
+普通模式：默认的集群模式。
+
+镜像模式：把需要的队列做成镜像队列，存在于多个节点，属于RabbitMQ的HA方案。只有配置了此模式，才能在主节点宕机后，正常使用。
+
+### 9.1 设置
+策略 | 结果
+:--: | :--:
+all | 队列镜像到所有节点
+exactly | 
+```
+rabbitmqctl set_policy [-p <vhost>] [--priority <priority>] [--apply-to <apply-to>] <name> <pattern> <definition>
+```
+参数名称 | 描述
+-- | --
+-p | 可选参数，针对指定 vhost 下的exchange或 queue
+–priority | 可选参数，policy 的优先级
+–apply-to | 可选参数，策略适用的对象类型，其值可为 “queues”, “exchanges” 或 “all”.默认是”all”
+name | policy 的名称
+pattern | 匹配模式（正则表达式）
+definition | 镜像定义，json 格式，包括三部分（ha-mode,ha-params,ha-sync-mode）具体配置见下表
+
+definition参数详情
+参数名称 | 描述
+-- | --
+ha-mode	| 指名镜像队列模式，其值可为”all”,”exactly”或”nodes”，all：表示在集群所有节点上进行镜像；exactly：表示在指定个数的节点上镜像，节点个数由 ha-params 指定；nodes：表示在指定节点上进行镜像，节点名称通过ha-params 指定。
+ha-params | ha-mode模式需要用到的参数：exactly 模式下为数字表述镜像节点数，nodes 模式下为节点列表表示需要镜像的节点。
+ha-sync-mode | 镜像队列中消息的同步方式，其值可为”automatic”或”manually”.
+
+例子：
+```
+rabbitmqctl set_policy ha-all "^" '{"ha-mode":"all"}'
+```
+
+### 9.2 清除
+```
+rabbitmqctl clear_policy [-p <vhost>] <name>
+```
+### 9.3 查看
+```
+rabbitmqctl list_policies [-p <vhost>]
+```
+
+
+
+## 10. 使用
+### 10.1 maven依赖
 ```
 <dependency>
     <groupId>org.springframework.boot</groupId>
@@ -136,7 +183,7 @@ rabbitmqctl clear_permissions [-p VHostPath] <username>
 </dependency>
 ```
 
-### 9.2 application.yml配置
+### 10.2 application.yml配置
 ```
 spring:
   rabbitmq:
@@ -146,7 +193,7 @@ spring:
     password: 123456
 ```
 
-### 9.3 生产者
+### 10.3 生产者
 ```
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -163,7 +210,7 @@ public class Producer {
 	public void send() {
 		String date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());// 24小时制
 		String context = "hello " + date;
-		System.out.println("Sender : " + context);
+		System.out.println("Producer : " + context);
         // demo 为队列名称
 		this.rabbitTemplate.convertAndSend("demo", context);
 	}
@@ -181,13 +228,13 @@ class RabbitmqDemoApplicationTests {
     private Producer producer;
 
     @Test
-    public void send() throws Exception {
+    public void sendMessage() throws Exception {
         producer.send();
     }
 }
 ```
 
-### 9.4 消费者
+### 10.4 消费者
 ```
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -199,13 +246,13 @@ public class Consumer {
 
 	@RabbitHandler
 	public void process(String hello) {
-		System.out.println("Receiver  : " + hello);
+		System.out.println("Consumer  : " + hello);
 	}
 }
 ```
 
-## 10. 问题
-### 10.1 问题1
+## 11. 问题
+### 11.1 问题1
 ```
 11月 26 16:06:16 node1 systemd[1]: rabbitmq-server.service: main process exited, code=exited, status=1/FAILURE
 11月 26 16:06:17 node1 rabbitmqctl[40386]: Stopping and halting node rabbit@node1
@@ -238,4 +285,14 @@ rabbitmq-server和erlang版本不匹配
 解决方法：
 ```
 卸载重装
+```
+
+## 12. 扩展
+### 12.1 移除节点
+```
+rabbitmqctl stop_app
+
+rabbitmqctl reset
+
+rabbitmqctl start_app
 ```
